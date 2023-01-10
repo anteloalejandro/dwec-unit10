@@ -1,0 +1,18 @@
+#container {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.persona {
+  text-align: center;
+  font-family: sans-serif;
+  font-size: 10px;
+  padding: 1rem;
+}
+
+.persona:nth-of-type(even) {
+  background: lightgrey;
+}
+.persona:nth-of-type(odd) {
+  background: white;
+}
