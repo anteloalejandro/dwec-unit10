@@ -1,0 +1,23 @@
+body {
+  text-align: center;
+}
+
+h1 {
+  font-family: sans-serif;
+  color: #999999;
+}
+
+button {
+  padding: .5em;
+  border: none;
+  outline: none;
+  background-color: rgb(71, 114, 163);
+  color: white;
+  width: 250px;
+
+}
+
+td {
+  text-align: right;
+}
+
