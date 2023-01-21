@@ -6,11 +6,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
   <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --bg: black;
+      font-family: Helvetica, Arial, sans-serif;
+      color: whitesmoke;
+    }
+
     body {
       display: grid;
       place-items: center;
       min-height: 100vh;
-      padding: 0; margin: 0;
+      padding: 1rem 0; margin: 0;
+      background-color: #333;
     }
 
     #galeria {
@@ -18,22 +27,26 @@
       flex-flow: row wrap;
       align-content: center;
       justify-content: center;
-      min-height: 100vh;
       padding: 0; margin: 0;
+      width: 90%;
+      background-color: var(--bg);
     }
 
-    #galeria > * {
+    #galeria img {
       flex-basis: 25%;
       flex-grow: 1;
       flex-shrink: 0;
+      transform: none;
+      transition: transform 200ms ease;
     }
 
-    #galeria img:hover { filter: brightness(1.5); }
-    #galeria img:active { filter: brightness(0.75); }
+    #galeria img:is(:hover, :focus) { transform: scale(0.97); }
+    #galeria img:active { transform: scale(0.9); }
 
   </style>
 </head>
 <body>
+  <h1>Galería de Fotos</h1>
   <div id="galeria">
 
   </div>
@@ -41,6 +54,27 @@
 </html>
 
 <script type="module">
+
+  /**
+  This webpage has to kinds of cookies:
+
+  aafX:
+    The 'X' represents the index of the image inside of its parent element.
+    This cookie's name corresponds to the ID of an image.
+    It doesn't have a value, but it has an expiration date.
+    There's one for each image that needs to be blurred.
+
+  blurred-order:
+    Its value is an stringified Array that contains the IDs of clicked images.
+    These IDs are in order, the first ones to be clicked come first.
+    The IDs need to be removed when clicking on an image that already exist.
+    The IDs need to be removed when the cookie having this ID as a name expires.
+  */
+
+  // The parent element of the images.
+  const galeria = document.getElementById('galeria')
+
+  // Function that creates a Map with all the cookies to handle them more easily.
   function cookiesMap() {
     const cookies = document.cookie.split('; ')
     const map = new Map(cookies.map(c => {
@@ -49,41 +83,72 @@
     return map
   }
 
-  const galeria = document.getElementById('galeria')
-  for (let i = 0; i < 10; i++) {
-    const seed = 'aaf' + i
-    let filter = ''
+  // Remove images from the 'blur-order' cookie when their cookies expire.
+  if (cookiesMap().has('blur-order')) {
+    /** @type {Array} */
+    const blurredImages = JSON.parse(cookiesMap().get('blur-order'))
 
-    const img = document.createElement('img')
-    galeria.appendChild(img)
-
-    if (cookiesMap().has('clicked-images')) {
-      const clicked = cookiesMap().get('clicked-images')
-      const imgIndex = [...galeria.children].indexOf(img)
-      if (JSON.parse(clicked).includes(imgIndex))
-        filter = '?blur'
+    for (let i = 0; i < blurredImages.length; i++) {
+      if (!cookiesMap().has(blurredImages[i])) {
+        blurredImages.splice(i, 1)
+        document.cookie = 'blur-order='+JSON.stringify(blurredImages)
+      }
     }
-
-    fetch('https://picsum.photos/seed/' + seed + '/300/300/' + filter)
-      .then(response => response.blob())
-      .then(data => {
-        img.src = URL.createObjectURL(data)
-        img.id = seed
-      })
   }
 
+  // Create the images
+  for (let i = 0; i < 10; i++) {
+    // Create an image element and add it to the gallery
+    const img = document.createElement('img')
+    img.id = 'aaf' + i
+    galeria.appendChild(img)
+
+    // Set filter to 'blur' this image if it's the first one on the 'blur-order' cookie
+    let filter = ''
+    if (cookiesMap().has('blur-order') && JSON.parse(cookiesMap().get('blur-order'))[0] === img.id)
+      filter = '?blur'
+
+    // Create a static random image using it's ID as a seed
+    fetch('https://picsum.photos/seed/' + img.id + '/300/300/' + filter)
+      .then(response => response.blob())
+      .then(data => { img.src = URL.createObjectURL(data) })
+  }
+
+  // This event handles the cookies that tell the code when an image needs to be blurred
   galeria.addEventListener('click', ev => {
     if (ev.target.tagName !== 'IMG') return
 
-    let clicked = []
-    if (cookiesMap().has('clicked-images'))
-      clicked = JSON.parse(cookiesMap().get('clicked-images'))
+    // Get the 'blur-order' cookie
+    /**@type {Array}*/
+    let blurOrder = []
+    if (cookiesMap().has('blur-order'))
+      blurOrder = JSON.parse(cookiesMap().get('blur-order'))
 
-    clicked.push([...galeria.children].indexOf(ev.target))
-    clicked = [...new Set(clicked)]
+    // If the clicked image exists on 'blur-order', remove it.
+    // If it doesn't, append it.
+    if (blurOrder.includes(ev.target.id))
+      blurOrder.splice(blurOrder.indexOf(ev.target.id), 1)
+    else
+      blurOrder.push(ev.target.id)
 
-    const time = 1000*60*60*24*7
-    const expire = '; expires='+ new Date(Date.now() + time).toUTCString()
-    document.cookie = 'clicked-images='+JSON.stringify(clicked)+expire
+    // Create/Update the 'blur-order' cookie.
+    document.cookie = 'blur-order='+JSON.stringify(blurOrder)
+
+
+    // Expiration date prep work
+    let expire = '; expires='
+    const baseTime = 1000*60*60*24*7 // A week
+    const finalTime = baseTime * (blurOrder.length + 1)
+
+    // If the clicked image already has a cookie, remove said cookie.
+    // If it doesn't, create it and set its expiration date.
+    if (cookiesMap().has(ev.target.id))
+      expire += new Date(0).toUTCString()
+    else
+      expire += new Date(Date.now() + finalTime).toUTCString()
+
+    document.cookie = ev.target.id+'='+expire
+    location.reload()
   })
+
 </script>
